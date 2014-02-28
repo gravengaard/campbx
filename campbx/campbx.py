@@ -1,22 +1,11 @@
-import urllib2
-import base64
-import simplejson as json
+#import urllib2
+import requests
+#import base64
+#import simplejson as json
 import logging
-from urllib import urlencode
 from functools import partial
-
-log = logging.getLogger(__name__)
-log_formatter = logging.Formatter('%(name)s - %(message)s')
-log_handler = logging.StreamHandler()
-
-log_handler.setFormatter(log_formatter)
-log.addHandler(log_handler)
-log.setLevel(logging.ERROR)
-
-opener = urllib2.build_opener()
-opener.addheaders = [('User-agent', 'Mozilla/5.0')]
-urllib2.install_opener(opener)
-
+from decimal import Decimal
+import unittest
 
 class EndPointPartial(partial):
     def __new__(cls, func, conf, _repr):
@@ -50,12 +39,16 @@ class CampBX(object):
         'trade_advanced': ('tradeadv', True),
     }
 
-    def __init__(self, username=None, password=None):
+    def __init__(self, username=None, password=None, log_level=logging.INFO):
         self.username = username
         self.password = password
+        
+        self.session = requests.Session()
+        self.session.headers['User-agent'] = 'Mozilla/5.0'
 
         # setup logging
-        self.log = log
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.log.setLevel(log_level)
 
         # append all the enpoints to the class dictionary
         self._create_endpoints()
@@ -77,31 +70,23 @@ class CampBX(object):
 
         # setup the url and the request objects
         url = '%s%s.php' % (self.api_url, endpoint)
-        log.debug('Setting url to %s' % url)
-        request = urllib2.Request(url)
+        self.log.debug('Setting url to %s' % url)
+        #request = urllib2.Request(url)
 
         # tack on authentication if needed
-        log.debug('Post params: %s' % post_params)
+        self.log.debug('Post params: %s' % post_params)
         if requires_auth:
             post_params.update({
                 'user': self.username,
                 'pass': self.password
             })
 
-        # url encode all parameters
-        data = urlencode(post_params)
-
-        # gimme some bitcoins!
         try:
-            log.debug('Requesting data from %s' % url)
-            response = urllib2.urlopen(request, data)
-            return json.loads(response.read())
-        except urllib2.URLError, e:
-            log.debug('Full error: %s' % e)
-            if hasattr(e, 'reason'):
-                self.log.error('Could not reach host. Reason: %s' % e.reason)
-            elif hasattr(e, 'code'):
-                self.log.error('Could not fulfill request. Error Code: %s' % e.code)
+            self.log.debug('Requesting data from %s' % url)
+            response = self.session.post(url, data=post_params)
+            return response.json(parse_float=Decimal)
+        except:
+            self.log.exception("Error making request")
             return None
 
     def _create_endpoints(self):
@@ -109,3 +94,25 @@ class CampBX(object):
         for k, v in self.endpoints.items():
             _repr = '%s.%s' % (self.__class__.__name__, k)
             self.__dict__[k] = EndPointPartial(self._make_request, v, _repr)
+
+class Test_CampBX(unittest.TestCase):
+    cbx = CampBX('test', 'fake')
+    
+    def test_xdepth(self):
+        xdepth = self.cbx.xdepth()
+        
+        self.assertIn('Bids', xdepth)
+        self.assertIn('Asks', xdepth)
+        self.assertIsInstance(xdepth['Bids'], list)
+        self.assertIsInstance(xdepth['Asks'], list)
+    
+    def test_xticker(self):
+        xticker = self.cbx.xticker()
+        
+        self.assertIn('Last Trade', xticker)
+        self.assertIn('Best Ask', xticker)
+        self.assertIn('Best Bid', xticker)
+
+
+if __name__=='__main__':
+    unittest.main()

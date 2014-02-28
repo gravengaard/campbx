@@ -114,7 +114,7 @@ setup(
   license = 'MIT',
   platforms = ['Linux','Windows'],
   packages = ['campbx'],
-  install_requires = ['simplejson'],
+  install_requires = ['requests'],
   classifiers = [
     'Development Status :: 4 - Beta',
     'Environment :: Web Environment',
