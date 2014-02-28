@@ -1,7 +1,4 @@
-#import urllib2
 import requests
-#import base64
-#import simplejson as json
 import logging
 from functools import partial
 from decimal import Decimal
@@ -96,9 +93,10 @@ class CampBX(object):
             self.__dict__[k] = EndPointPartial(self._make_request, v, _repr)
 
 class Test_CampBX(unittest.TestCase):
-    cbx = CampBX('test', 'fake')
+    cbx = CampBX('test', 'fake', logging.DEBUG)
     
     def test_xdepth(self):
+        '''test xdepth for Bids and Asks'''
         xdepth = self.cbx.xdepth()
         
         self.assertIn('Bids', xdepth)
@@ -107,6 +105,7 @@ class Test_CampBX(unittest.TestCase):
         self.assertIsInstance(xdepth['Asks'], list)
     
     def test_xticker(self):
+        '''test xticker for bid, ask, and last'''
         xticker = self.cbx.xticker()
         
         self.assertIn('Last Trade', xticker)
@@ -115,4 +114,5 @@ class Test_CampBX(unittest.TestCase):
 
 
 if __name__=='__main__':
+    logging.basicConfig()
     unittest.main()
