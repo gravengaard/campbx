@@ -78,13 +78,18 @@ class CampBX(object):
                 'pass': self.password
             })
 
+        response = None
         try:
             self.log.debug('Requesting data from %s' % url)
             response = self.session.post(url, data=post_params)
-            return response.json(parse_float=Decimal)
+            if response.ok:
+                return response.json(parse_float=Decimal)
+            else:
+                self.log.error('response was not ok : %s', response.text)
+                return {}
         except:
-            self.log.exception("Error making request")
-            return None
+            self.log.exception("Error making request = %s", getattr(response, 'text', None))
+            return {}
 
     def _create_endpoints(self):
         """Create all api endpoints using self.endpoint and partial from functools"""
