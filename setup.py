@@ -29,6 +29,11 @@ Quick Usage
 The API does not require a username and password, however you will have limited access
 to only the public endpoints.
 
+All of the commands will return a concurrent.futures.Future object. This is done
+in a non-blocking manner so your code will continue to operate. You MUST
+start an IOLoop somewhere in your code. See the unittest in campbx if you are
+not at all familiar with tornado.ioloop.
+
 Initializing the API::
 
     from campbx import CampBX
@@ -36,13 +41,13 @@ Initializing the API::
 
 Getting market ticker::
 
-    c.xticker()
+    c.xticker().result()
 
     {'Best Ask': '5.17', 'Best Bid': '5.07', 'Last Trade': '5.07'}
 
 Check your account balance::
 
-    c.my_funds()
+    c.my_funds().result()
 
     {'Liquid BTC': '0.00000000',
      'Liquid USD': '2.19',
@@ -53,7 +58,7 @@ Check your account balance::
 
 Check your open orders::
 
-    c.my_orders()
+    c.my_orders().result()
 
     {'Buy': [{'Dark Pool': 'No',
        'Fill Type': 'Incremental',
@@ -110,11 +115,13 @@ setup(
   name = 'campbx',
   url = 'https://github.com/glenbot/campbx',
   download_url = 'https://github.com/glenbot/campbx',
-  version = '1.0.6',
+  version = '1.1.0',
   license = 'MIT',
   platforms = ['Linux','Windows'],
   packages = ['campbx'],
-  install_requires = ['requests'],
+  install_requires = ['requests-futures',
+                      'tornado',
+                      ],
   classifiers = [
     'Development Status :: 4 - Beta',
     'Environment :: Web Environment',

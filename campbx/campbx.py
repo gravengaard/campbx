@@ -1,8 +1,11 @@
-import requests
 import logging
+from requests_futures.sessions import FuturesSession
 from functools import partial
 from decimal import Decimal
+from tornado import gen, ioloop
+import threading
 import unittest
+import concurrent.futures
 
 class EndPointPartial(partial):
     def __new__(cls, func, conf, _repr):
@@ -40,7 +43,7 @@ class CampBX(object):
         self.username = username
         self.password = password
         
-        self.session = requests.Session()
+        self.session = FuturesSession()
         self.session.headers['User-agent'] = 'Mozilla/5.0'
 
         # setup logging
@@ -61,6 +64,7 @@ class CampBX(object):
         else:
             self.log.setLevel(logging.ERROR)
 
+    @gen.coroutine
     def _make_request(self, conf, post_params={}):
         """Make a request to the API and return data in a pythonic object"""
         endpoint, requires_auth = conf
@@ -81,15 +85,17 @@ class CampBX(object):
         response = None
         try:
             self.log.debug('Requesting data from %s' % url)
-            response = self.session.post(url, data=post_params)
+            response = yield self.session.post(url, data=post_params)
             if response.ok:
-                return response.json(parse_float=Decimal)
+                result = response.json(parse_float=Decimal)
             else:
                 self.log.error('response was not ok : %s', response.text)
-                return {}
+                result = {}
         except:
             self.log.exception("Error making request = %s", getattr(response, 'text', None))
-            return {}
+            result = {}
+        
+        raise gen.Return(result)
 
     def _create_endpoints(self):
         """Create all api endpoints using self.endpoint and partial from functools"""
@@ -99,10 +105,25 @@ class CampBX(object):
 
 class Test_CampBX(unittest.TestCase):
     cbx = CampBX('test', 'fake', logging.DEBUG)
+    log = logging.getLogger('unittesting')
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.log.info('starting IOLoop')
+        threading.Thread(target=ioloop.IOLoop.instance().start).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.log.info('stopping IOLoop')
+        ioloop.IOLoop.instance().stop()
     
     def test_xdepth(self):
         '''test xdepth for Bids and Asks'''
-        xdepth = self.cbx.xdepth()
+        xdepth_f = self.cbx.xdepth()
+        
+        self.assertIsInstance(xdepth_f, concurrent.futures.Future)
+        
+        xdepth = xdepth_f.result()
         
         self.assertIn('Bids', xdepth)
         self.assertIn('Asks', xdepth)
@@ -111,7 +132,11 @@ class Test_CampBX(unittest.TestCase):
     
     def test_xticker(self):
         '''test xticker for bid, ask, and last'''
-        xticker = self.cbx.xticker()
+        xticker_f = self.cbx.xticker()
+        
+        self.assertIsInstance(xticker_f, concurrent.futures.Future)
+        
+        xticker = xticker_f.result()
         
         self.assertIn('Last Trade', xticker)
         self.assertIn('Best Ask', xticker)
